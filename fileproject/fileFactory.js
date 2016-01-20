@@ -1,13 +1,13 @@
 // Muaz Khan      - www.MuazKhan.com
 // MIT License    - www.WebRTC-Experiment.com/licence
-// Documentation  - github.com/muaz-khan/WebRTC-Experiment/tree/master/WebRTC-File-Sharing
+// Documentation  - github.com/muaz-khan/WebRTC-Experiment/tree/master/WebRTC-bucket-Sharing
 
 // _______
-// File.js
+// bucket.js
 
-var FileFactory = {
+var fftory = {
     Send: function(config) {
-        var file = config.file;
+        var bucket = config.bucket;
         var socket = config.channel;
 
         var chunkSize = config.chunkSize || 40 * 1000; // 64k max sctp limit (AFAIK!)
@@ -16,74 +16,75 @@ var FileFactory = {
 
         var chunksPerSlice = Math.floor(Math.min(100000000, cacheSize) / chunkSize);
         var sliceSize = chunksPerSlice * chunkSize;
-        var maxChunks = Math.ceil(file.size / chunkSize);
+        var maxChunks = Math.ceil(bucket.size / chunkSize);
 
         // uuid is used to uniquely identify sending instance
         var uuid = (Math.random() * new Date().getTime()).toString(36).toUpperCase().replace( /\./g , '-');
-        socket.send({
+
+        socket.send(JSON.stringify({
             uuid: uuid,
             maxChunks: maxChunks,
-            size: file.size,
-            name: file.name,
-            lastModifiedDate: file.lastModifiedDate,
-            type: file.type,
+            size: bucket.size,
+            name: bucket.name,
+            lastModifiedDate: bucket.lastModifiedDate,
+            type: bucket.type,
             start: true
-        }, config.extra);
+        }));
 
-        file.maxChunks = maxChunks;
-        file.uuid = uuid;
-        if (config.onBegin) config.onBegin(file);
+        bucket.maxChunks = maxChunks;
+        bucket.uuid = uuid;
+        if (config.onBegin) config.onBegin(bucket);
 
         var blob, reader = new FileReader();
         reader.onloadend = function(evt) {
             if (evt.target.readyState == FileReader.DONE) {
-                addChunks(file.name, evt.target.result, function() {
+                addChunks(bucket.name, evt.target.result, function() {
                     sliceId++;
-                    if ((sliceId + 1) * sliceSize < file.size) {
-                        blob = file.slice(sliceId * sliceSize, (sliceId + 1) * sliceSize);
+                    if ((sliceId + 1) * sliceSize < bucket.size) {
+                        blob = bucket.slice(sliceId * sliceSize, (sliceId + 1) * sliceSize);
                         reader.readAsArrayBuffer(blob);
-                    } else if (sliceId * sliceSize < file.size) {
-                        blob = file.slice(sliceId * sliceSize, file.size);
+                    } else if (sliceId * sliceSize < bucket.size) {
+                        blob = bucket.slice(sliceId * sliceSize, bucket.size);
                         reader.readAsArrayBuffer(blob);
                     } else {
-                        socket.send({
+                        socket.send(JSON.stringify({
                             uuid: uuid,
                             maxChunks: maxChunks,
-                            size: file.size,
-                            name: file.name,
-                            lastModifiedDate: file.lastModifiedDate,
-                            type: file.type,
+                            size: bucket.size,
+                            name: bucket.name,
+                            lastModifiedDate: bucket.lastModifiedDate,
+                            type: bucket.type,
                             end: true
-                        }, config.extra);
+                        }));
 
-                        file.url = URL.createObjectURL(file);
-                        if (config.onEnd) config.onEnd(file);
+                        bucket.url = URL.createObjectURL(bucket);
+                        if (config.onEnd) config.onEnd(bucket);
                     }
                 });
             }
         };
 
-        blob = file.slice(sliceId * sliceSize, (sliceId + 1) * sliceSize);
+        blob = bucket.slice(sliceId * sliceSize, (sliceId + 1) * sliceSize);
         reader.readAsArrayBuffer(blob);
 
         var numOfChunksInSlice;
         var currentPosition = 0;
-        var hasEntireFile;
+        var hasEntirebucket;
         var chunks = [];
 
-        function addChunks(fileName, binarySlice, callback) {
+        function addChunks(bucketName, binarySlice, callback) {
             numOfChunksInSlice = Math.ceil(binarySlice.byteLength / chunkSize);
             for (var i = 0; i < numOfChunksInSlice; i++) {
                 var start = i * chunkSize;
                 chunks[currentPosition] = binarySlice.slice(start, Math.min(start + chunkSize, binarySlice.byteLength));
 
-                FileConverter.ArrayBufferToDataURL(chunks[currentPosition], function(str) {
-                    socket.send({
+                bucketConverter.ArrayBufferToDataURL(chunks[currentPosition], function(str) {
+                    socket.send(JSON.stringify({
                         uuid: uuid,
                         value: str,
                         currentPosition: currentPosition,
                         maxChunks: maxChunks
-                    }, config.extra);
+                    }));
                 });
 
                 currentPosition++;
@@ -98,7 +99,7 @@ var FileFactory = {
             }
 
             if (currentPosition == maxChunks) {
-                hasEntireFile = true;
+                hasEntirebucket = true;
             }
 
             if (config.interval == 0 || typeof config.interval == 'undefined')
@@ -110,14 +111,10 @@ var FileFactory = {
 
     Receiver: function(config) {
         var packets = { };
-        console.log('Reciever intialized');
+
         function receive(chunk) {
-            console.log('Recieving chunks');
-            if(chunk.start)
-                console.log('Start byte found');
             if (chunk.start && !packets[chunk.uuid]) {
                 packets[chunk.uuid] = [];
-                console.log("before on begin receive ");
                 if (config.onBegin) config.onBegin(chunk);
             }
 
@@ -129,7 +126,7 @@ var FileFactory = {
 
                 for (var i = 0; i < length; i++) {
                     if (!!_packets[i]) {
-                        FileConverter.DataURLToBlob(_packets[i], function(buffer) {
+                        bucketConverter.DataURLToBlob(_packets[i], function(buffer) {
                             finalArray.push(buffer);
                         });
                     }
@@ -139,7 +136,7 @@ var FileFactory = {
                 blob = merge(blob, chunk);
                 blob.url = URL.createObjectURL(blob);
                 blob.uuid = chunk.uuid;
-                
+
                 if (!blob.size) console.error('Something went wrong. Blob Size is 0.');
 
                 if (config.onEnd) config.onEnd(blob);
@@ -152,11 +149,11 @@ var FileFactory = {
             receive: receive
         };
     },
-    SaveToDisk: function(fileUrl, fileName) {
+    SaveToDisk: function(bucketUrl, bucketName) {
         var hyperlink = document.createElement('a');
-        hyperlink.href = fileUrl;
+        hyperlink.href = bucketUrl;
         hyperlink.target = '_blank';
-        hyperlink.download = fileName || fileUrl;
+        hyperlink.download = bucketName || bucketUrl;
 
         var mouseEvent = new MouseEvent('click', {
             view: window,
@@ -170,20 +167,21 @@ var FileFactory = {
 };
 
 // ________________
-// FileConverter.js
-var FileConverter = {
+// bucketConverter.js
+var bucketConverter = {
     ArrayBufferToDataURL: function(buffer, callback) {
         window.BlobBuilder = window.MozBlobBuilder || window.WebKitBlobBuilder || window.BlobBuilder;
 
         // getting blob from array-buffer
         var blob = new Blob([buffer]);
 
-        // reading file as binary-string
-        var fileReader = new FileReader();
-        fileReader.onload = function(e) {
+        // reading bucket as binary-string
+        var bucketReader = new FileReader();
+        bucketReader.onload = function(e) {
+            console.log('str value: ',e.target.result);
             callback(e.target.result);
         };
-        fileReader.readAsDataURL(blob);
+        bucketReader.readAsDataURL(blob);
     },
     DataURLToBlob: function(dataURL, callback) {
         var binary = atob(dataURL.substr(dataURL.indexOf(',') + 1)),

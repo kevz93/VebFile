@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
 //-----------------------------------------------------------------------------------------------------
 var progressHelper = {};
 var outputPanel = document.body;
-var fileR = new FileFactory.Receiver(fileHelper); // used in handleMessage()
+var fileR = new fftory.Receiver(fileHelper); // used in handleMessage()
 var fileHelper = {
     onBegin: function (file) {
         console.log('onBegin');
@@ -50,10 +50,10 @@ function handleFileSelect(evt) {
                   f.size, ' bytes, last modified: ',
                   f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a',
                   '</li>');
-    FileFactory.Send({
-    file: f,
+    fftory.Send({
+    bucket: f,
     channel: dataChannel,
-    interval: 100,
+    interval: 0,
     chunkSize: 16000, // 1000 for RTP; or 16k for SCTP
                      // chrome's sending limit is 64k; firefox' receiving limit is 16k!
     
@@ -310,9 +310,15 @@ function handleFileSelect(evt) {
 
     var arrayToStoreChunks= [];
 //-----------------------------------Recieve file------------------------------------------------
+    var rx = fftory.Receiver(fileHelper);
     function handleMessage(event) { 
-     console.log('recieved : ',event.data);
-     fileR.receive(event.data);
+        var data = JSON.parse(event.data);
+    if(typeof data  =='object')
+    {
+    console.log('Received Object : ',data);
+    rx.receive(JSON.parse(event.data));
+    // fileR.receive(JSON.parse(event.data));
+    }
     }
 
   function saveToDisk(fileUrl, fileName){
