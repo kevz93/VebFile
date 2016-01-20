@@ -1,5 +1,12 @@
 "use strict";
 document.addEventListener('DOMContentLoaded', function() {
+var isOpera = !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+    // Opera 8.0+ (UA detection to detect Blink/v8-powered Opera)
+var isFirefox = typeof InstallTrigger !== 'undefined';   // Firefox 1.0+
+//var isSafari = Object.prototype.toString.call(window.HTMLElement).indexOf('Constructor') > 0;
+    // At least Safari 3+: "[object HTMLElementConstructor]"
+var isChrome = !!window.chrome && !isOpera;              // Chrome 1+
+//var isIE = /*@cc_on!@*/false || !!document.documentMode; // At least IE6
 
 //-----------------------------------------------------------------------------------------------------
 var progressHelper = {};
@@ -65,11 +72,12 @@ function handleFileSelect(evt) {
     document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
   }
 
-  function handleDragOver(evt) {
-    evt.stopPropagation();
-    evt.preventDefault();
-    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-  }
+  // function handleDragOver(evt) {
+  //   evt.stopPropagation();
+  //   // if (isChrome) evt.preventDefault();
+  //   // if(isFirefox) evt.defaultPrevented();
+  //   evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+  // }
 
   // Setup the dnd listeners.
   var dropZone = document.getElementById('drop_zone');
@@ -526,7 +534,10 @@ function handleFileSelect(evt) {
 
     //------------------------------------------------------------------------------------------------------------------------------------------------------------------
     $(document).ready(function() {
-    dropZone.addEventListener('dragover', handleDragOver, false);
+        $('#drop_zone').bind('dragover', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+    });
     dropZone.addEventListener('drop', handleFileSelect, false);
    });
 
